@@ -1,0 +1,9 @@
+[submodule "lib/imgui"]
+	path = lib/imgui
+	url = https://github.com/ocornut/imgui.git
+[submodule "lib/nativefiledialog"]
+	path = lib/nativefiledialog
+	url = https://github.com/mlabbe/nativefiledialog.git
+[submodule "lib/kissfft"]
+	path = lib/kissfft
+	url = https://github.com/itdaniher/kissfft.git
