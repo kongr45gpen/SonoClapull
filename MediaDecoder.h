@@ -1,0 +1,12 @@
+
+
+#ifndef SONOCLAPULL_MEDIADECODER_H
+#define SONOCLAPULL_MEDIADECODER_H
+
+
+class MediaDecoder {
+
+};
+
+
+#endif //SONOCLAPULL_MEDIADECODER_H

@@ -4,6 +4,7 @@ add_library(ImGui imgui/imgui.cpp imgui/imgui_draw.cpp)
 add_library(ImGuiDemo imgui/imgui_demo.cpp)
 add_library(NativeFileDialog nativefiledialog/src/nfd_common.c nativefiledialog/src/nfd_gtk.c)
 add_library(KissFFT kissfft/kiss_fft.c)
+add_library(KissFFTr kissfft/kiss_fft.c kissfft/tools/kiss_fftr.c)
 
 include_directories(${GTK2_INCLUDE_DIRS})
 
