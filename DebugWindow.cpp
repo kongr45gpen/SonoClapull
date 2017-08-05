@@ -7,6 +7,8 @@
 #include <nfd.h>
 #include <kiss_fft.h>
 #include "DebugWindow.h"
+#include "MediaDecoder.h"
+#include "FileProcessException.h"
 
 DebugWindow::DebugWindow() {
 
@@ -44,9 +46,8 @@ void DebugWindow::draw() {
     ImGui::PopStyleColor(3);
 
     if (dataExists) {
-        const float* datas = data;
-        ImGui::PlotLines("", datas, 4096, 0, NULL, -1.0f, 1.0f, ImVec2(ImGui::GetContentRegionAvailWidth(),(ImGui::GetContentRegionAvail()).y/2));
-        ImGui::PlotLines("", fftdata, 512, 0, NULL, 0.0f, 100.0f, ImVec2(ImGui::GetContentRegionAvailWidth(),(ImGui::GetContentRegionAvail()).y));
+        ImGui::Text("Format: %s", mediaDecoder->getFormat().c_str());
+        ImGui::Text("Sample Rate: %d", mediaDecoder->getSampleRate());
     }
 
     if (ImGui::BeginPopupModal("Error", NULL, ImGuiWindowFlags_AlwaysAutoResize))
@@ -62,63 +63,16 @@ void DebugWindow::draw() {
 }
 
 void DebugWindow::analyse() {
-    printf("Analysing\n");
-
     try {
-//        std::ifstream audio;
-//        audio.open(location);
-//
-//        if (!audio.is_open()) {
-//            throw Exception(strerror(errno));
-//        }
-        SNDFILE *infile;
-        SF_INFO sfinfo;
-        // The SF_INFO struct must be initialized before using it.
-        memset (&sfinfo, 0, sizeof (sfinfo)) ;
+        mediaDecoder = std::make_shared<MediaDecoder>(location);
 
-        if (! (infile = sf_open (location, SFM_READ, &sfinfo))) {
-            throw Exception(sf_strerror (NULL));
-        }
-
-        if (sfinfo.channels != 1) {
-            throw Exception("Please provide a file with 1 audio channel.");
-        }
-        if ((sfinfo.format & SF_FORMAT_PCM_16) == 0) {
-            throw Exception("Please provide a file in signed 16-bit format");
-        }
-
-        sf_read_float(infile, data, 4096);
-        dataExists = true;
-
-        kiss_fft_cpx fft_in[4096];
-        kiss_fft_cpx fft_out[4096];
-
-        for (int i = 0; i < 4096; i ++) {
-            fft_in[i] = { data[i], 0 };
-        }
-
-        kiss_fft_cfg cfg = kiss_fft_alloc( 1024 ,0 ,0,0 );
-        kiss_fft( cfg , fft_in , fft_out );
-
-        for (int i = 0; i < 1024; i++) {
-            fftdata[i] = sqrt(pow(fft_out[i].r,2) + pow(fft_out[i].i, 2));
-            std::cout << fftdata[i] << std::endl;
-        }
-
-        free(cfg);
-
-//        double data[87];
-//        int readcount;
-//
-//        while ((readcount = sf_read_double (infile, data, 87)))
-//        {
-//            std::cout << data[0] << std::endl;
-//        } ;
-
-        sf_close(infile);
+        dataExists = 1;
     } catch (Exception &e) {
         ImGui::OpenPopup("Error");
         openError = e.getWhat();
+    } catch (FileProcessException &e) {
+        ImGui::OpenPopup("Error");
+        openError = e.what();
     }
 }
 

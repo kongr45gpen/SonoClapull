@@ -5,6 +5,10 @@
 #include "DebugWindow.h"
 #include <stdio.h>
 #include <GLFW/glfw3.h>
+extern "C" {
+#include <libavformat/avformat.h>
+}
+
 
 static void error_callback(int error, const char* description)
 {
@@ -38,6 +42,9 @@ int main(int, char**)
     ImVec4 clear_color = ImColor(35, 44, 59);
 
     DebugWindow debugWindow;
+
+    /* register all formats and codecs */
+    av_register_all();
 
     // Main loop
     while (!glfwWindowShouldClose(window))

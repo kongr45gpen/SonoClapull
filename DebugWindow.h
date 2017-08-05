@@ -2,6 +2,9 @@
 #define SONOCLAPULL_DEBUGWINDOW_H
 
 #include <string>
+#include <memory>
+#include "MediaDecoder.h"
+
 #define PATH_MAX 4097
 
 class DebugWindow {
@@ -10,6 +13,7 @@ class DebugWindow {
     std::string openError;
 
     bool dataExists = false;
+    std::shared_ptr<MediaDecoder> mediaDecoder;
     void analyse();
 
     float data[4096];
