@@ -6,6 +6,7 @@
 #include <vector>
 #include <cmath>
 #include <kiss_fftr.h>
+#include <kiss_fft.h>
 
 static void error_callback(int error, const char* description)
 {
@@ -74,20 +75,28 @@ int main(int, char**)
         static float ac = 1;
         int shift = 0;
         int distance = 0;
-        static bool sampleWindow = true;
+        static bool sampleWindow = false;
+        static bool copy = false;
         static int extra = 0;
         double f = 1.0/T;
 
-        ImGui::SliderFloat("dc coefficient", &dc, -1.0, 1.0);
-        ImGui::SliderFloat("ac coefficient", &ac, -1.0, 1.0);
-        ImGui::SameLine(); if(ImGui::Button("Reset")) dc = 0;
+        int startstop[2] = {start,stop};
+        int shiftwindow[2] = {shift,distance};
+        float dcac[2] = {dc,ac};
+
+        ImGui::SliderFloat2("dc/ac coefficient", dcac, -10.0, 10.0, "%.3f", 5);
+        ImGui::SameLine(); if(ImGui::Button("Reset DC")) dcac[0] = 0;
+        ImGui::SameLine(); if(ImGui::Button("Reset AC")) dcac[1] = 1;
         ImGui::SliderInt("sine period", &T, 1, 1024);
-        ImGui::SliderInt("sine start", &start, 0, 1024);
-        ImGui::SliderInt("sine stop", &stop, 0, 1024);
-        ImGui::SliderInt("start/stop shift", &shift, -5, 5);
-        ImGui::SliderInt("start/stop window", &distance, -5, 5);
+        ImGui::SliderInt2("sine start/stop", startstop, 0, 1024);
+        ImGui::SliderInt2("start/stop shift/window", shiftwindow, -5, 5);
         ImGui::Checkbox("window", &sampleWindow);
-        ImGui::SliderInt("extra empty samples", &extra, 0, 6024);
+        ImGui::SameLine(); ImGui::Checkbox("copy instead of empty extra samples", &copy);
+        ImGui::SliderInt("extra samples", &extra, 0, 6024);
+
+        start = startstop[0]; stop = startstop[1];
+        shift = shiftwindow[0]; distance = shiftwindow[1];
+        dc = dcac[0]; ac = dcac[1];
 
         static std::vector<float> samples(1024+maxExtra);
         static std::vector<float> windowFactor(1024+maxExtra);
@@ -118,8 +127,14 @@ int main(int, char**)
                 samples[i] = ac * (float) sin(2 * M_PI * f * i) + dc;
             }
         }
-        for (int i = 1024; i < 1024+extra; i++) {
-            samples[i] = 0;
+        if (copy) {
+            for (int i = 1024; i < 1024+extra; i++) {
+                samples[i] = samples[i % 1024];
+            }
+        } else {
+            for (int i = 1024; i < 1024 + extra; i++) {
+                samples[i] = 0;
+            }
         }
         if (sampleWindow) {
             for (int i = 0; i < 1024; i ++) {
@@ -130,7 +145,7 @@ int main(int, char**)
             }
         }
 
-        ImGui::PlotLines("", samples.data(), 1024+extra, 0, NULL, -2.0f, 2.0f, ImVec2(ImGui::GetContentRegionAvailWidth(),(ImGui::GetContentRegionAvail()).y/3));
+        ImGui::PlotLines("", samples.data(), 1024+extra, 0, NULL, -2.0f, 2.0f, ImVec2(ImGui::GetContentRegionAvailWidth(),(ImGui::GetContentRegionAvail()).y/4));
 
         kiss_fft_cpx fft_out[512+extra/2];
 
@@ -151,6 +166,9 @@ int main(int, char**)
             if (selection == 2) {
                 results[i] = pow(results[i], 2);
             }
+            if (selection == 3) {
+                results[i] = exp(results[i]);
+            }
 
             if (results[i] > max) max = results[i];
             if (results[i] < min) min = results[i];
@@ -158,13 +176,50 @@ int main(int, char**)
 
         ImGui::Text("Max: %f,\t Min: %f", max, min);
         ImGui::SameLine();
-        ImGui::Combo("", &selection, "Linear\0dB\0db^2\0\0");
+        ImGui::Combo("", &selection, "Linear\0dB\0db^2\0Exp\0\0");
 
 
-        ImGui::PlotLines("", results.data(), 512+extra/2, 0, NULL, min, max, ImVec2(ImGui::GetContentRegionAvailWidth(),(ImGui::GetContentRegionAvail()).y/2));
+        ImGui::PlotLines("", results.data(), 512+extra/2, 0, NULL, min, max, ImVec2(ImGui::GetContentRegionAvailWidth(),(ImGui::GetContentRegionAvail()).y/3));
+
+        static bool showReconstructedWave = true;
+        static bool keepPhase = true;
+
+        if (showReconstructedWave) {
+            max = 0;
+            min = 0;
+            for (int j = 0; j < 1024 + extra; j++) {
+                samples[j] = 0;
+                for (int i = 0; i < 512 + extra / 2; i++) {
+                    if (keepPhase) {
+                        samples[j] += fft_out[i].r * cos(-2 * M_PI * (i / (1024.0 + extra)) * j) +
+                                      fft_out[i].i * sin(-2 * M_PI * (i / (1024.0 + extra)) * j);
+                    } else {
+                        samples[j] += results[i] * cos(2 * M_PI * (i / (512.0 + extra / 2.0)) * j);
+                    }
+                }
+                if (samples[j] > max) max = samples[j];
+                if (samples[j] < min) min = samples[j];
+            }
+        }
+
+
+        ImGui::Checkbox("",&showReconstructedWave);
+        ImGui::SameLine();
+        ImGui::TextColored({0.2, 0.5, 0.9, 1.0}, "Reconstructed wave");
+        if (showReconstructedWave) {
+            ImGui::SameLine();
+            ImGui::Text("(CPU-intensive) \tMax: %f,\t Min: %f", max, min);
+            ImGui::SameLine();
+            ImGui::Checkbox("Keep phase data", &keepPhase);
+            ImGui::PlotLines("", samples.data(), 1024 + extra, 0, NULL, min, max,
+                             ImVec2(ImGui::GetContentRegionAvailWidth(), (ImGui::GetContentRegionAvail()).y / 2));
+        }
 
         if (sampleWindow) {
+            ImGui::PushStyleColor(ImGuiCol_PlotLines, {0.9, 0.8, 0.2, 1.0});
+            ImGui::TextColored({0.9, 0.8, 0.2, 1.0}, "Window");
             ImGui::PlotLines("", windowFactor.data(), 1024, 0, NULL, 0.0f, 1.0f, ImVec2(ImGui::GetContentRegionAvailWidth(),(ImGui::GetContentRegionAvail()).y));
+            ImGui::PopStyleColor();
         }
 
         ImGui::End();
