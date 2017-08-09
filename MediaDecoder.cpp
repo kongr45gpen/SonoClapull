@@ -71,6 +71,8 @@ MediaDecoder::MediaDecoder(const std::string &filename) : filename(filename) {
 MediaDecoder::~MediaDecoder() {
     // See if it's OK to close this earlier
     avformat_close_input(&formatContext);
+    av_frame_free(&frame);
+    av_frame_free(&floatFrame);
 }
 
 bool MediaDecoder::readFrame() {
