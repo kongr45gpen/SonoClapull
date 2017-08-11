@@ -54,11 +54,11 @@ MediaDecoder::MediaDecoder(const std::string &filename, int samples) : filename(
     format = decoder->long_name;
     sampleRate = stream->codec->sample_rate;
 
-    frame = av_frame_alloc();
+//    frame = av_frame_alloc();
 //    floatFrame = av_frame_alloc();
-    if (frame == nullptr) {
-        throw FileProcessException(avError(ENOMEM, "Could not allocate frame"));
-    }
+//    if (frame == nullptr) {
+//        throw FileProcessException(avError(ENOMEM, "Could not allocate frame"));
+//    }
 
     // initialize packet, set data to NULL, let the demuxer fill it
     av_init_packet(&packet);
@@ -78,49 +78,61 @@ std::shared_ptr<std::vector<float> > MediaDecoder::getNextSamples() {
     auto returnSamples = std::make_shared<std::vector<float> >(samples);
     int start = 0;
 
-    while (true) {
+    // A few samples from the previous frame were left unprocessed; return them now
+    if (processedFrameEnd >= 0) {
+        std::cout << "processing leftover samples" << std::endl;
+
+        int end = std::min(packetSamples, processedFrameEnd + samples);
+        std::copy(packetData.begin() + processedFrameEnd, packetData.begin() + end, returnSamples->begin());
+
+        start = processedFrameEnd;
+        processedFrameEnd = -1;
+    }
+
+    while (start < samples) {
         if (!readFrame()) {
             return nullptr;
         };
 
-        std::cout << " value[0] = " << packetData[0] << " (gns1)" << std::endl;
-        std::cout << " value[1] = " << packetData[1] << " (gns1)" << std::endl;
-
         unsigned long gotSamples = packetData.size();
 
-        std::cout << "Read frame #" << framesProcessed;
-        std::cout << " , got " << gotSamples << " samples ";
-        std::cout << "  " << gotSamples << "/" << samples-start << " rem. [total=" << samples << "]";
-        std::cout << std::endl;
+//        std::cout << "Read frame #" << framesProcessed;
+//        std::cout << " , got " << gotSamples << " samples ";
+//        std::cout << "  " << gotSamples << "/" << samples-start << " rem. [total=" << samples << "]";
+//        std::cout << std::endl;
         if (gotSamples > samples - start) {
-            std::cout << "ERROR" << std::endl;
-            gotSamples = samples - start;
+            processedFrameEnd = gotSamples;
+            gotSamples = (unsigned long) samples - start;
         }
 
         // Fill the return array with the samples contained in this frame
         for (int i = 0; i < gotSamples; i++) {
             (*returnSamples)[i+start] = packetData[i];
-//            packet.buf->data
-            if (i <= 1 || i >= gotSamples-4) std::cout << "returnSamples[" << i+start << "]" << " = data[" << i << "] = " << (*returnSamples)[i+start] << std::endl;
         }
         start += gotSamples;
-
-        std::cout << " value[0] = " << packetData[0] << " (gns2)" << std::endl;
-        std::cout << " value[1] = " << packetData[1] << " (gns2)" << std::endl;
 
         if (start >= samples) {
             break;
         }
     }
 
+    std::cout << "first samples: " << returnSamples->at(0) << ", " << returnSamples->at(1) << "\n";
+    std::cout << "last  samples: " << returnSamples->at(samples-2) << ", " << returnSamples->at(samples-1) << "\n";
+
     return returnSamples;
 }
 
 bool MediaDecoder::readFrame() {
     // Get one packet from the source file
+    packetSamples = 0;
     if (av_read_frame(formatContext, &packet) >= 0) {
         AVPacket originalPacket = packet;
         unsigned long samplesFilled = 0;
+
+        if (packet.dts != packet.pts) {
+            throw FileProcessException("Different decoded and actual packet timestamp!");
+        }
+
         do {
             // Decode every frame of the packet
             int err = decodePacket();
@@ -131,21 +143,19 @@ bool MediaDecoder::readFrame() {
             packet.size -= err;
 
             // Store packet data
-            if (packetData.size() < samplesFilled + floatFrame.size()) {
+//            if (packetData.size() < samplesFilled + floatFrame.size()) {
                 // Increase size of array if needed
                 packetData.resize(samplesFilled + floatFrame.size());
-            }
-//            auto dataPointer = reinterpret_cast<float *>(floatFrame.data());
+//            }
+            packetSamples += floatFrame.size();
+            samplesFilled += floatFrame.size();
             auto dataPointer = floatFrame.data();
             std::copy(
                     dataPointer,
                     dataPointer + floatFrame.size(),
                     packetData.data() + samplesFilled
             );
-            std::cout << " value[0] = " << packetData[0] << " (pkt)" << std::endl;
-            std::cout << " value[1] = " << packetData[1] << " (pkt)" << std::endl;
         } while (packet.size > 0);
-//        av_packet_unref(&originalPacket);
         packet = originalPacket;
 
         packetData.shrink_to_fit(); // Reduce memory consumption if needed
@@ -161,40 +171,19 @@ int MediaDecoder::decodePacket() {
     int decoded = packet.size;
     int gotFrame = 0;
 
-    av_frame_unref(frame);
-    av_frame_free(&frame);
-    frame = av_frame_alloc();
-
-
     err = avcodec_decode_audio4(codecContext, frame, &gotFrame, &packet);
     if (err < 0) {
-        throw FileProcessException(avError(err, "Error decoding audio frame"));
+        // TODO: Log error
+//        throw FileProcessException(avError(err, "Error decoding audio frame"));
     }
 
     decoded = FFMIN(err, packet.size);
-    if (gotFrame) {
-        long bytesPerSample = av_get_bytes_per_sample((AVSampleFormat) frame->format);
-        long unpaddedLinesize = frame->nb_samples * bytesPerSample;
-
-//        frame->buf;
-        std::cout << av_get_sample_fmt_name((AVSampleFormat) frame->format);
-
-        std::cout << " channels: " << av_get_default_channel_layout(frame->channels);
-        std::cout << " timepoint: " << frame->best_effort_timestamp;
-
+    if ((bool) gotFrame) {
         convertToFloat();
-//        auto data = reinterpret_cast<float *>(floatFrame->extended_data[0]);
 
-//        av_get_sample_fl
-
-//         for (int i = 0 ; i < floatFrame->nb_samples ; i += 1) {
-//             std::cout << data[i] << std::endl;
-//         }
-
-        std::cout << " bytes per sample: " << bytesPerSample << "\t linesize: " << unpaddedLinesize
-                                                                               << "\n";
-        std::cout << " value[0] = " <<  floatFrame[0] << std::endl;
-        std::cout << " value[1] = " <<  floatFrame[1] << std::endl;
+        av_frame_unref(frame);
+    } else {
+        floatFrame.clear();
     }
 
     framesProcessed++;

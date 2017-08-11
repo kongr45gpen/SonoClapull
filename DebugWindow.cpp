@@ -49,7 +49,7 @@ void DebugWindow::draw() {
         ImGui::Text("Format: %s", mediaDecoder->getFormat().c_str());
         ImGui::Text("Sample Rate: %d", mediaDecoder->getSampleRate());
 
-        static int start = 1950;
+        static int start = 00;
         static bool move = false;
         ImGui::Text("Start %d", start); ImGui::SameLine(); ImGui::Checkbox("move", &move); ImGui::SameLine();
         if (ImGui::Button("-64")) {
@@ -58,7 +58,11 @@ void DebugWindow::draw() {
             start += 1;
         }
 
-        ImGui::PlotLines("", data->data(), 128, start, NULL, -1.0f, 1.0f, ImVec2(ImGui::GetContentRegionAvailWidth(),(ImGui::GetContentRegionAvail()).y/2));
+        ImGui::PlotLines("", data->data() + start, 1024, 0, NULL, -1.0f, 1.0f, ImVec2(ImGui::GetContentRegionAvailWidth(),(ImGui::GetContentRegionAvail()).y/2));
+
+        if (ImGui::Button("next samplepack")) {
+            data = mediaDecoder->getNextSamples();
+        }
     }
 
     if (ImGui::BeginPopupModal("Error", NULL, ImGuiWindowFlags_AlwaysAutoResize))

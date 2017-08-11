@@ -16,12 +16,13 @@ class MediaDecoder {
     int samples;
     std::vector<float> packetData;
     std::shared_ptr<std::vector<float> > data_p;
-    std::vector<float> oldData; // old data stored to account for overlapping windows
+    int packetSamples;
 
+    std::vector<float> oldData; // old data stored to account for overlapping windows
     std::string filename;
     std::string format;
-    int sampleRate;
 
+    int sampleRate;
     AVFormatContext *formatContext = nullptr;
     AVCodecContext *codecContext = nullptr;
     AVFrame *frame = nullptr;
@@ -32,7 +33,7 @@ class MediaDecoder {
     /**
      * The last processed frame number
      */
-    long processedFrameEnd = -1;
+    int processedFrameEnd = -1;
 
     /**
      * Get a libav error description based on its key
