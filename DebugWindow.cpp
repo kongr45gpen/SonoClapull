@@ -58,7 +58,7 @@ void DebugWindow::draw() {
             start += 1;
         }
 
-        ImGui::PlotLines("", data->data() + start, 1024, 0, NULL, -1.0f, 1.0f, ImVec2(ImGui::GetContentRegionAvailWidth(),(ImGui::GetContentRegionAvail()).y/2));
+        ImGui::PlotLines("", data->data() + start, 127, 0, NULL, -1.0f, 1.0f, ImVec2(ImGui::GetContentRegionAvailWidth(),(ImGui::GetContentRegionAvail()).y/2));
 
         if (ImGui::Button("next samplepack")) {
             data = mediaDecoder->getNextSamples();
@@ -79,7 +79,7 @@ void DebugWindow::draw() {
 
 void DebugWindow::analyse() {
     try {
-        mediaDecoder = std::make_shared<MediaDecoder>(location,10240);
+        mediaDecoder = std::make_shared<MediaDecoder>(location,127);
 
         data = mediaDecoder->getNextSamples();
         dataExists = 1;

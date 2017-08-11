@@ -80,12 +80,11 @@ std::shared_ptr<std::vector<float> > MediaDecoder::getNextSamples() {
 
     // A few samples from the previous frame were left unprocessed; return them now
     if (processedFrameEnd >= 0) {
-        std::cout << "processing leftover samples" << std::endl;
-
         int end = std::min(packetSamples, processedFrameEnd + samples);
+        std::cout << "processing leftover samples " << processedFrameEnd << "~" << end << std::endl;
         std::copy(packetData.begin() + processedFrameEnd, packetData.begin() + end, returnSamples->begin());
 
-        start = processedFrameEnd;
+        start = processedFrameEnd - end;
         processedFrameEnd = -1;
     }
 
@@ -101,8 +100,10 @@ std::shared_ptr<std::vector<float> > MediaDecoder::getNextSamples() {
 //        std::cout << "  " << gotSamples << "/" << samples-start << " rem. [total=" << samples << "]";
 //        std::cout << std::endl;
         if (gotSamples > samples - start) {
-            processedFrameEnd = gotSamples;
+            processedFrameEnd = samples - start;
             gotSamples = (unsigned long) samples - start;
+
+            std::cout << "Too many samples! Processing " << 0 << "~" << processedFrameEnd << std::endl;
         }
 
         // Fill the return array with the samples contained in this frame
@@ -110,14 +111,10 @@ std::shared_ptr<std::vector<float> > MediaDecoder::getNextSamples() {
             (*returnSamples)[i+start] = packetData[i];
         }
         start += gotSamples;
-
-        if (start >= samples) {
-            break;
-        }
     }
 
     std::cout << "first samples: " << returnSamples->at(0) << ", " << returnSamples->at(1) << "\n";
-    std::cout << "last  samples: " << returnSamples->at(samples-2) << ", " << returnSamples->at(samples-1) << "\n";
+    std::cout << "last  samples: " << returnSamples->at(samples-4) << ", " << returnSamples->at(samples-3) << ", " << returnSamples->at(samples-2) << ", " << returnSamples->at(samples-1) << "\n";
 
     return returnSamples;
 }
