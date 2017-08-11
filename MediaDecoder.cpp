@@ -148,13 +148,12 @@ bool MediaDecoder::readFrame() {
                 packetData.resize(samplesFilled + floatFrame.size());
 //            }
             packetSamples += floatFrame.size();
-            samplesFilled += floatFrame.size();
-            auto dataPointer = floatFrame.data();
             std::copy(
-                    dataPointer,
-                    dataPointer + floatFrame.size(),
-                    packetData.data() + samplesFilled
+                    floatFrame.begin(),
+                    floatFrame.end(),
+                    packetData.begin() + samplesFilled
             );
+            samplesFilled += floatFrame.size();
         } while (packet.size > 0);
         packet = originalPacket;
 
@@ -170,6 +169,10 @@ int MediaDecoder::decodePacket() {
     int err = 0;
     int decoded = packet.size;
     int gotFrame = 0;
+
+    // TODO: Don't free the first frame
+    av_frame_free(&frame);
+    frame = av_frame_alloc();
 
     err = avcodec_decode_audio4(codecContext, frame, &gotFrame, &packet);
     if (err < 0) {
