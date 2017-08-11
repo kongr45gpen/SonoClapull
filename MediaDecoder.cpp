@@ -11,7 +11,7 @@ extern "C" {
 #include <libswresample/swresample.h>
 }
 
-MediaDecoder::MediaDecoder(const std::string &filename) : filename(filename) {
+MediaDecoder::MediaDecoder(const std::string &filename, int samples) : filename(filename), samples(samples) {
     int err;
 
     err = avformat_open_input(&formatContext, filename.c_str(), nullptr, nullptr);
@@ -44,6 +44,7 @@ MediaDecoder::MediaDecoder(const std::string &filename) : filename(filename) {
         throw FileProcessException(avError(err, "This file format is unsupported"));
     }
 
+    av_dict_set(&options, "refcounted_frames", "0", 0);
     err = avcodec_open2(stream->codec, decoder, &options);
     if (err < 0) {
         throw FileProcessException(avError(err, "Failed to open codec", decoder->long_name));
@@ -54,8 +55,8 @@ MediaDecoder::MediaDecoder(const std::string &filename) : filename(filename) {
     sampleRate = stream->codec->sample_rate;
 
     frame = av_frame_alloc();
-    floatFrame = av_frame_alloc();
-    if (frame == nullptr || floatFrame == nullptr) {
+//    floatFrame = av_frame_alloc();
+    if (frame == nullptr) {
         throw FileProcessException(avError(ENOMEM, "Could not allocate frame"));
     }
 
@@ -63,30 +64,91 @@ MediaDecoder::MediaDecoder(const std::string &filename) : filename(filename) {
     av_init_packet(&packet);
     packet.data = nullptr;
     packet.size = 0;
-
-    while(readFrame()) { };
-//    readFrame();
 }
 
 MediaDecoder::~MediaDecoder() {
     // See if it's OK to close this earlier
     avformat_close_input(&formatContext);
     av_frame_free(&frame);
-    av_frame_free(&floatFrame);
+//    av_frame_free(&floatFrame);
+}
+
+std::shared_ptr<std::vector<float> > MediaDecoder::getNextSamples() {
+    // Initialise the return array
+    auto returnSamples = std::make_shared<std::vector<float> >(samples);
+    int start = 0;
+
+    while (true) {
+        if (!readFrame()) {
+            return nullptr;
+        };
+
+        std::cout << " value[0] = " << packetData[0] << " (gns1)" << std::endl;
+        std::cout << " value[1] = " << packetData[1] << " (gns1)" << std::endl;
+
+        unsigned long gotSamples = packetData.size();
+
+        std::cout << "Read frame #" << framesProcessed;
+        std::cout << " , got " << gotSamples << " samples ";
+        std::cout << "  " << gotSamples << "/" << samples-start << " rem. [total=" << samples << "]";
+        std::cout << std::endl;
+        if (gotSamples > samples - start) {
+            std::cout << "ERROR" << std::endl;
+            gotSamples = samples - start;
+        }
+
+        // Fill the return array with the samples contained in this frame
+        for (int i = 0; i < gotSamples; i++) {
+            (*returnSamples)[i+start] = packetData[i];
+//            packet.buf->data
+            if (i <= 1 || i >= gotSamples-4) std::cout << "returnSamples[" << i+start << "]" << " = data[" << i << "] = " << (*returnSamples)[i+start] << std::endl;
+        }
+        start += gotSamples;
+
+        std::cout << " value[0] = " << packetData[0] << " (gns2)" << std::endl;
+        std::cout << " value[1] = " << packetData[1] << " (gns2)" << std::endl;
+
+        if (start >= samples) {
+            break;
+        }
+    }
+
+    return returnSamples;
 }
 
 bool MediaDecoder::readFrame() {
+    // Get one packet from the source file
     if (av_read_frame(formatContext, &packet) >= 0) {
         AVPacket originalPacket = packet;
+        unsigned long samplesFilled = 0;
         do {
+            // Decode every frame of the packet
             int err = decodePacket();
             if (err < 0) {
                 break;
             }
             packet.data += err;
             packet.size -= err;
+
+            // Store packet data
+            if (packetData.size() < samplesFilled + floatFrame.size()) {
+                // Increase size of array if needed
+                packetData.resize(samplesFilled + floatFrame.size());
+            }
+//            auto dataPointer = reinterpret_cast<float *>(floatFrame.data());
+            auto dataPointer = floatFrame.data();
+            std::copy(
+                    dataPointer,
+                    dataPointer + floatFrame.size(),
+                    packetData.data() + samplesFilled
+            );
+            std::cout << " value[0] = " << packetData[0] << " (pkt)" << std::endl;
+            std::cout << " value[1] = " << packetData[1] << " (pkt)" << std::endl;
         } while (packet.size > 0);
-        av_packet_unref(&originalPacket);
+//        av_packet_unref(&originalPacket);
+        packet = originalPacket;
+
+        packetData.shrink_to_fit(); // Reduce memory consumption if needed
 
         return true;
     }
@@ -98,6 +160,11 @@ int MediaDecoder::decodePacket() {
     int err = 0;
     int decoded = packet.size;
     int gotFrame = 0;
+
+    av_frame_unref(frame);
+    av_frame_free(&frame);
+    frame = av_frame_alloc();
+
 
     err = avcodec_decode_audio4(codecContext, frame, &gotFrame, &packet);
     if (err < 0) {
@@ -112,44 +179,64 @@ int MediaDecoder::decodePacket() {
 //        frame->buf;
         std::cout << av_get_sample_fmt_name((AVSampleFormat) frame->format);
 
-        std::cout << "channels: " << av_get_default_channel_layout(frame->channels) << std::endl;
+        std::cout << " channels: " << av_get_default_channel_layout(frame->channels);
+        std::cout << " timepoint: " << frame->best_effort_timestamp;
 
-        convertToFloat(5, AV_SAMPLE_FMT_FLT, frame->channel_layout, frame->sample_rate);
-        auto data = reinterpret_cast<float *>(floatFrame->extended_data[0]);
+        convertToFloat();
+//        auto data = reinterpret_cast<float *>(floatFrame->extended_data[0]);
 
 //        av_get_sample_fl
 
-        for (int i = 0 ; i < floatFrame->nb_samples ; i += 1) {
-            std::cout << data[i] << std::endl;
-        }
+//         for (int i = 0 ; i < floatFrame->nb_samples ; i += 1) {
+//             std::cout << data[i] << std::endl;
+//         }
 
         std::cout << " bytes per sample: " << bytesPerSample << "\t linesize: " << unpaddedLinesize
                                                                                << "\n";
+        std::cout << " value[0] = " <<  floatFrame[0] << std::endl;
+        std::cout << " value[1] = " <<  floatFrame[1] << std::endl;
     }
 
+    framesProcessed++;
     return decoded;
 }
 
-void MediaDecoder::convertToFloat(int samples, AVSampleFormat format, int64_t channelLayout, int sampleRate)
+void MediaDecoder::convertToFloat()
 {
 //    int err;
 //    err = av_frame_make_writable(floatFrame);
 //    if (err < 0) {
 //        throw FileProcessException(avError(err, "Failed to make frame writeable"));
 //    }
-
-    av_frame_set_channels(floatFrame, 1);
-    av_frame_set_channel_layout(floatFrame, AV_CH_LAYOUT_MONO);
-    av_frame_set_sample_rate(floatFrame, frame->sample_rate);
-    floatFrame->format = AV_SAMPLE_FMT_FLT; // is this right??
+//    av_frame_free(&floatFrame);
+//    floatFrame = av_frame_alloc();
+//    av_frame_set_channels(floatFrame, 1);
+//    av_frame_set_channel_layout(floatFrame, AV_CH_LAYOUT_MONO);
+//    av_frame_set_sample_rate(floatFrame, frame->sample_rate);
+//    floatFrame->format = AV_SAMPLE_FMT_FLT; // is this right??
 
     if (!frame->channel_layout) {
         frame->channel_layout = av_get_default_channel_layout(frame->channels);
     }
 
-    SwrContext *swr = swr_alloc();
-    swr_config_frame(swr, floatFrame, frame);
-    swr_convert_frame(swr, floatFrame, frame);
+    SwrContext * swr = swr_alloc();
+    if (swr == nullptr) {
+        throw FileProcessException(avError(ENOMEM, "Could not allocate resampler context"));
+    }
+
+    av_opt_set_int(swr, "in_channel_layout",    frame->channel_layout, 0);
+    av_opt_set_int(swr, "in_sample_rate",       frame->sample_rate, 0);
+    av_opt_set_sample_fmt(swr, "in_sample_fmt", (AVSampleFormat) frame->format, 0);
+
+    av_opt_set_int(swr, "out_channel_layout",    AV_CH_LAYOUT_MONO, 0);
+    av_opt_set_int(swr, "out_sample_rate",       frame->sample_rate, 0);
+    av_opt_set_sample_fmt(swr, "out_sample_fmt", AV_SAMPLE_FMT_FLT, 0);
+
+    swr_init(swr);
+
+    floatFrame.resize(frame->nb_samples);
+    uint8_t * storage[1] = {reinterpret_cast<uint8_t *>(floatFrame.data()) };
+    swr_convert(swr, storage, frame->nb_samples, const_cast<const uint8_t * *>(frame->extended_data), frame->nb_samples);
 
     swr_free(&swr);
 }

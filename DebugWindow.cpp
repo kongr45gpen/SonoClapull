@@ -48,6 +48,17 @@ void DebugWindow::draw() {
     if (dataExists) {
         ImGui::Text("Format: %s", mediaDecoder->getFormat().c_str());
         ImGui::Text("Sample Rate: %d", mediaDecoder->getSampleRate());
+
+        static int start = 1950;
+        static bool move = false;
+        ImGui::Text("Start %d", start); ImGui::SameLine(); ImGui::Checkbox("move", &move); ImGui::SameLine();
+        if (ImGui::Button("-64")) {
+            start -= 64;
+        } else if (move) {
+            start += 1;
+        }
+
+        ImGui::PlotLines("", data->data(), 128, start, NULL, -1.0f, 1.0f, ImVec2(ImGui::GetContentRegionAvailWidth(),(ImGui::GetContentRegionAvail()).y/2));
     }
 
     if (ImGui::BeginPopupModal("Error", NULL, ImGuiWindowFlags_AlwaysAutoResize))
@@ -64,8 +75,9 @@ void DebugWindow::draw() {
 
 void DebugWindow::analyse() {
     try {
-        mediaDecoder = std::make_shared<MediaDecoder>(location);
+        mediaDecoder = std::make_shared<MediaDecoder>(location,10240);
 
+        data = mediaDecoder->getNextSamples();
         dataExists = 1;
     } catch (Exception &e) {
         ImGui::OpenPopup("Error");

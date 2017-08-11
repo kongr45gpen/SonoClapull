@@ -3,12 +3,21 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 
 extern "C" {
 #include <libavformat/avformat.h>
 }
 
 class MediaDecoder {
+    /**
+     * The amount of samples to return every time the getNextSamples() function is called
+     */
+    int samples;
+    std::vector<float> packetData;
+    std::shared_ptr<std::vector<float> > data_p;
+    std::vector<float> oldData; // old data stored to account for overlapping windows
+
     std::string filename;
     std::string format;
     int sampleRate;
@@ -16,8 +25,14 @@ class MediaDecoder {
     AVFormatContext *formatContext = nullptr;
     AVCodecContext *codecContext = nullptr;
     AVFrame *frame = nullptr;
-    AVFrame *floatFrame = nullptr;
+    std::vector<float> floatFrame;
     AVPacket packet;
+
+    int framesProcessed = 0;
+    /**
+     * The last processed frame number
+     */
+    long processedFrameEnd = -1;
 
     /**
      * Get a libav error description based on its key
@@ -27,14 +42,15 @@ class MediaDecoder {
     std::string avError(int key, std::string description = "", std::string value = "");
     bool readFrame();
     int decodePacket();
-    void convertToFloat(int samples, AVSampleFormat format, int64_t channelLayout, int sampleRate);
+    void convertToFloat();
 public:
-    MediaDecoder(const std::string &filename);
+    MediaDecoder(const std::string &filename, int samples = 1024);
     virtual ~MediaDecoder();
 
     const std::string &getFormat() const;
-
     int getSampleRate() const;
+
+    std::shared_ptr<std::vector<float> > getNextSamples();
 };
 
 
