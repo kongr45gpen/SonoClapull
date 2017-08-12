@@ -29,7 +29,6 @@ MediaDecoder::MediaDecoder(const std::string &filename, int samples) : filename(
     //
     // Open Codec context
     //
-    AVStream *stream;
     AVCodec *decoder = nullptr;
     AVDictionary *options = nullptr;
 
@@ -39,21 +38,21 @@ MediaDecoder::MediaDecoder(const std::string &filename, int samples) : filename(
     }
 
     streamIndex = err;
-    stream = formatContext->streams[streamIndex];
-    decoder = avcodec_find_decoder(stream->codec->codec_id);
+    audioStream = formatContext->streams[streamIndex];
+    decoder = avcodec_find_decoder(audioStream->codec->codec_id);
     if (decoder == nullptr) {
         throw FileProcessException(avError(err, "This file format is unsupported"));
     }
 
     av_dict_set(&options, "refcounted_frames", "0", 0);
-    err = avcodec_open2(stream->codec, decoder, &options);
+    err = avcodec_open2(audioStream->codec, decoder, &options);
     if (err < 0) {
         throw FileProcessException(avError(err, "Failed to open codec", decoder->long_name));
     }
 
-    codecContext = stream->codec;
+    codecContext = audioStream->codec;
     format = decoder->long_name;
-    sampleRate = stream->codec->sample_rate;
+    sampleRate = audioStream->codec->sample_rate;
 
     // initialize packet, set data to NULL, let the demuxer fill it
     av_init_packet(&packet);
@@ -74,8 +73,6 @@ std::shared_ptr<std::vector<float> > MediaDecoder::getNextSamples() {
     int overlapSamples = 0;
     if (oldData) {
         overlapSamples = std::min((int) floor(overlap * samples), (int) oldData->size());
-
-        std::cout << "Overlap: " << oldData->size() - overlapSamples << "~" << oldData->size() << std::endl;
 
         // Copy the last N samples from the old data
         // into the first N samples of the new data
@@ -110,7 +107,6 @@ void MediaDecoder::addNewSamples(std::vector<float>::iterator begin, int remaini
 
         // Copy the data to the return array
         int end = std::min((int) packetData.size(), processedFrameStart + remainingSamples);
-        std::cout << "Copying sample pool " << processedFrameStart << " ~ " << end << std::endl;
         std::copy(packetData.begin() + processedFrameStart,
                   packetData.begin() + end,
                   begin + returnStart);
@@ -184,6 +180,7 @@ int MediaDecoder::decodePacket() {
     decoded = FFMIN(err, packet.size);
     if ((bool) gotFrame) {
         convertToFloat();
+        currentTimestamp = av_frame_get_best_effort_timestamp(frame);
 
         av_frame_unref(frame);
     } else {
@@ -247,10 +244,16 @@ std::string MediaDecoder::avError(int key, std::string description, std::string 
     return ss.str();
 }
 
-const std::string &MediaDecoder::getFormat() const {
-    return format;
-}
+float MediaDecoder::getProgress() {
+    if (audioStream == nullptr) {
+        return 0;
+    }
 
-int MediaDecoder::getSampleRate() const {
-    return sampleRate;
+    if (audioStream->duration == 0) {
+        return 0;
+    }
+
+//    std::cout << "timebase:" << av_codec_get_pkt_timebase(codecContext).num << "/" << av_codec_get_pkt_timebase(codecContext).den << std::endl;
+
+    return currentTimestamp / (float) audioStream->duration;
 }

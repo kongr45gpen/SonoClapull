@@ -18,7 +18,7 @@ class DebugWindow {
     void analyse();
 
     //float * data;
-    float fftdata[1024];
+    float fftdata[512];
 
     class Exception {
         std::string what;

@@ -18,9 +18,9 @@ include_directories ("${PROJECT_SOURCE_DIR}/lib/kissfft")
 include_directories ("${PROJECT_SOURCE_DIR}/lib/kissfft/tools")
 add_subdirectory (lib)
 
-set(SOURCE_FILES main.cpp imgui_impl_glfw.cpp DebugWindow.cpp DebugWindow.h MediaDecoder.cpp FileProcessException.cpp FileProcessException.h FileEndException.cpp FileEndException.h)
+set(SOURCE_FILES main.cpp imgui_impl_glfw.cpp DebugWindow.cpp DebugWindow.h MediaDecoder.cpp FileProcessException.cpp FileProcessException.h FileEndException.cpp FileEndException.h ToneLocator.cpp ToneLocator.h)
 add_executable(SonoClapull ${SOURCE_FILES})
-target_link_libraries (SonoClapull ImGui ImGuiDemo glfw GL NativeFileDialog KissFFT)
+target_link_libraries (SonoClapull ImGui ImGuiDemo glfw GL NativeFileDialog KissFFTr)
 target_link_libraries (SonoClapull ${FFMPEG_AVCODEC_LIBRARIES} ${FFMPEG_AVUTIL_LIBRARIES} ${FFMPEG_AVFORMAT_LIBRARIES} ${FFMPEG_SWRESAMPLE_LIBRARIES})
 
 add_executable(experiments frequencyCalculator.cpp)

@@ -30,6 +30,7 @@ class MediaDecoder {
     AVFormatContext *formatContext = nullptr;
     AVCodecContext *codecContext = nullptr;
     AVFrame *frame = nullptr;
+    AVStream *audioStream = nullptr;
     std::vector<float> floatFrame;
     AVPacket packet;
 
@@ -39,6 +40,8 @@ class MediaDecoder {
      */
     int processedFrameStart = 0;
     int processedFrameEnd = 0;
+
+    int64_t currentTimestamp;
 
     /**
      * Get a libav error description based on its key
@@ -54,10 +57,16 @@ public:
     MediaDecoder(const std::string &filename, int samples = 1024);
     virtual ~MediaDecoder();
 
-    const std::string &getFormat() const;
-    int getSampleRate() const;
+    const std::string &getFormat() const {
+        return format;
+    }
+    int getSampleRate() const {
+        return sampleRate;
+    }
 
     std::shared_ptr<std::vector<float> > getNextSamples();
+
+    float getProgress();
 };
 
 
