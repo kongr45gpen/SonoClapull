@@ -4,6 +4,7 @@
 #include <string>
 
 class FileProcessException {
+protected:
     std::string description;
 public:
     FileProcessException(const std::string &description);

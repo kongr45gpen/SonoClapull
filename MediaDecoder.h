@@ -33,7 +33,8 @@ class MediaDecoder {
     /**
      * The last processed frame number
      */
-    int processedFrameEnd = -1;
+    int processedFrameStart = 0;
+    int processedFrameEnd = 0;
 
     /**
      * Get a libav error description based on its key

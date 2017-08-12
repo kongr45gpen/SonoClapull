@@ -2,6 +2,7 @@
 #include <iostream>
 #include "MediaDecoder.h"
 #include "FileProcessException.h"
+#include "FileEndException.h"
 
 extern "C" {
 #include <libavutil/opt.h>
@@ -54,12 +55,6 @@ MediaDecoder::MediaDecoder(const std::string &filename, int samples) : filename(
     format = decoder->long_name;
     sampleRate = stream->codec->sample_rate;
 
-//    frame = av_frame_alloc();
-//    floatFrame = av_frame_alloc();
-//    if (frame == nullptr) {
-//        throw FileProcessException(avError(ENOMEM, "Could not allocate frame"));
-//    }
-
     // initialize packet, set data to NULL, let the demuxer fill it
     av_init_packet(&packet);
     packet.data = nullptr;
@@ -70,51 +65,39 @@ MediaDecoder::~MediaDecoder() {
     // See if it's OK to close this earlier
     avformat_close_input(&formatContext);
     av_frame_free(&frame);
-//    av_frame_free(&floatFrame);
 }
 
 std::shared_ptr<std::vector<float> > MediaDecoder::getNextSamples() {
     // Initialise the return array
     auto returnSamples = std::make_shared<std::vector<float> >(samples);
-    int start = 0;
+    int returnStart = 0;
 
-    // A few samples from the previous frame were left unprocessed; return them now
-    if (processedFrameEnd >= 0) {
-        int end = std::min(packetSamples, processedFrameEnd + samples);
-        std::cout << "processing leftover samples " << processedFrameEnd << "~" << end << std::endl;
-        std::copy(packetData.begin() + processedFrameEnd, packetData.begin() + end, returnSamples->begin());
+    int remainingSamples = samples;
 
-        start = processedFrameEnd - end;
-        processedFrameEnd = -1;
-    }
+    while (remainingSamples > 0) {
+        // Get a new frame if needed
+        if (processedFrameStart >= processedFrameEnd) {
+            if (!readFrame()) {
+                throw FileEndException("End of file reached");
+            }
 
-    while (start < samples) {
-        if (!readFrame()) {
-            return nullptr;
-        };
-
-        unsigned long gotSamples = packetData.size();
-
-//        std::cout << "Read frame #" << framesProcessed;
-//        std::cout << " , got " << gotSamples << " samples ";
-//        std::cout << "  " << gotSamples << "/" << samples-start << " rem. [total=" << samples << "]";
-//        std::cout << std::endl;
-        if (gotSamples > samples - start) {
-            processedFrameEnd = samples - start;
-            gotSamples = (unsigned long) samples - start;
-
-            std::cout << "Too many samples! Processing " << 0 << "~" << processedFrameEnd << std::endl;
+            processedFrameStart = 0;
+            processedFrameEnd = packetData.size();
         }
 
-        // Fill the return array with the samples contained in this frame
-        for (int i = 0; i < gotSamples; i++) {
-            (*returnSamples)[i+start] = packetData[i];
-        }
-        start += gotSamples;
+        // Copy the data to the return array
+        int end = std::min((int) packetData.size(), processedFrameStart + remainingSamples);
+        std::cout << "Copying sample pool " << processedFrameStart << " ~ " << end << std::endl;
+        std::copy(packetData.begin() + processedFrameStart,
+                  packetData.begin() + end,
+                  returnSamples->begin() + returnStart);
+
+        // Update the state variables
+        returnStart += (end - processedFrameStart);
+        remainingSamples -= (end - processedFrameStart);
+        processedFrameStart = end;
     }
 
-    std::cout << "first samples: " << returnSamples->at(0) << ", " << returnSamples->at(1) << "\n";
-    std::cout << "last  samples: " << returnSamples->at(samples-4) << ", " << returnSamples->at(samples-3) << ", " << returnSamples->at(samples-2) << ", " << returnSamples->at(samples-1) << "\n";
 
     return returnSamples;
 }
@@ -167,8 +150,9 @@ int MediaDecoder::decodePacket() {
     int decoded = packet.size;
     int gotFrame = 0;
 
-    // TODO: Don't free the first frame
-    av_frame_free(&frame);
+    if (frame != nullptr) {
+        av_frame_free(&frame);
+    }
     frame = av_frame_alloc();
 
     err = avcodec_decode_audio4(codecContext, frame, &gotFrame, &packet);
@@ -192,18 +176,6 @@ int MediaDecoder::decodePacket() {
 
 void MediaDecoder::convertToFloat()
 {
-//    int err;
-//    err = av_frame_make_writable(floatFrame);
-//    if (err < 0) {
-//        throw FileProcessException(avError(err, "Failed to make frame writeable"));
-//    }
-//    av_frame_free(&floatFrame);
-//    floatFrame = av_frame_alloc();
-//    av_frame_set_channels(floatFrame, 1);
-//    av_frame_set_channel_layout(floatFrame, AV_CH_LAYOUT_MONO);
-//    av_frame_set_sample_rate(floatFrame, frame->sample_rate);
-//    floatFrame->format = AV_SAMPLE_FMT_FLT; // is this right??
-
     if (!frame->channel_layout) {
         frame->channel_layout = av_get_default_channel_layout(frame->channels);
     }
