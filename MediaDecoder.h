@@ -15,10 +15,14 @@ class MediaDecoder {
      */
     int samples;
     std::vector<float> packetData;
-    std::shared_ptr<std::vector<float> > data_p;
     int packetSamples;
+    /**
+     * The amount of overlapping.
+     * A float between 0 and 1
+     */
+    float overlap = 0.5;
 
-    std::vector<float> oldData; // old data stored to account for overlapping windows
+    std::shared_ptr<std::vector<float> > oldData; // old data stored to account for overlapping windows
     std::string filename;
     std::string format;
 
@@ -45,6 +49,7 @@ class MediaDecoder {
     bool readFrame();
     int decodePacket();
     void convertToFloat();
+    void addNewSamples(std::vector<float>::iterator begin, int remainingSamples);
 public:
     MediaDecoder(const std::string &filename, int samples = 1024);
     virtual ~MediaDecoder();

@@ -70,9 +70,32 @@ MediaDecoder::~MediaDecoder() {
 std::shared_ptr<std::vector<float> > MediaDecoder::getNextSamples() {
     // Initialise the return array
     auto returnSamples = std::make_shared<std::vector<float> >(samples);
-    int returnStart = 0;
 
-    int remainingSamples = samples;
+    int overlapSamples = 0;
+    if (oldData) {
+        overlapSamples = std::min((int) floor(overlap * samples), (int) oldData->size());
+
+        std::cout << "Overlap: " << oldData->size() - overlapSamples << "~" << oldData->size() << std::endl;
+
+        // Copy the last N samples from the old data
+        // into the first N samples of the new data
+        // (N = overlapSamples)
+        std::copy(
+                oldData->end() - overlapSamples,
+                oldData->end(),
+                returnSamples->begin()
+        );
+    }
+
+    addNewSamples(returnSamples->begin() + overlapSamples, samples - overlapSamples);
+
+    oldData = returnSamples;
+
+    return returnSamples;
+}
+
+void MediaDecoder::addNewSamples(std::vector<float>::iterator begin, int remainingSamples) {
+    int returnStart = 0;
 
     while (remainingSamples > 0) {
         // Get a new frame if needed
@@ -90,16 +113,13 @@ std::shared_ptr<std::vector<float> > MediaDecoder::getNextSamples() {
         std::cout << "Copying sample pool " << processedFrameStart << " ~ " << end << std::endl;
         std::copy(packetData.begin() + processedFrameStart,
                   packetData.begin() + end,
-                  returnSamples->begin() + returnStart);
+                  begin + returnStart);
 
         // Update the state variables
         returnStart += (end - processedFrameStart);
         remainingSamples -= (end - processedFrameStart);
         processedFrameStart = end;
     }
-
-
-    return returnSamples;
 }
 
 bool MediaDecoder::readFrame() {

@@ -79,7 +79,7 @@ void DebugWindow::draw() {
 
 void DebugWindow::analyse() {
     try {
-        mediaDecoder = std::make_shared<MediaDecoder>(location,2049);
+        mediaDecoder = std::make_shared<MediaDecoder>(location,127);
 
         data = mediaDecoder->getNextSamples();
         dataExists = 1;
