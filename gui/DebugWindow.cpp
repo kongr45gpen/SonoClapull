@@ -8,10 +8,10 @@
 #include <kiss_fftr.h>
 #include <algorithm>
 #include "DebugWindow.h"
-#include "MediaDecoder.h"
-#include "FileProcessException.h"
-#include "FileEndException.h"
-#include "ToneLocator.h"
+#include "../MediaDecoder.h"
+#include "../FileProcessException.h"
+#include "../FileEndException.h"
+#include "../ToneLocator.h"
 
 DebugWindow::DebugWindow() {
     for(int i = 0 ; i < 512; i ++) {

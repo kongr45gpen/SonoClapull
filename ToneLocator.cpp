@@ -7,7 +7,6 @@
 constexpr float ToneLocator::DATA_FREQS[];
 
 ToneLocator::ToneLocator(const std::string & filename) : decoder(filename, 1024) {
-    std::cout << "Hello!" << std::endl;
 }
 
 void ToneLocator::locateClock() {

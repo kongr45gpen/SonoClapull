@@ -255,8 +255,6 @@ float MediaDecoder::getProgress() {
         return 0;
     }
 
-//    std::cout << "timebase:" << av_codec_get_pkt_timebase(codecContext).num << "/" << av_codec_get_pkt_timebase(codecContext).den << std::endl;
-
     return currentTimestamp / (float) audioStream->duration;
 }
 

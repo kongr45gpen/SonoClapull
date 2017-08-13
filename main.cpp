@@ -2,7 +2,8 @@
 
 #include "lib/imgui/imgui.h"
 #include "imgui_impl_glfw.h"
-#include "DebugWindow.h"
+#include "gui/DebugWindow.h"
+#include "gui/LoadWindow.h"
 #include <stdio.h>
 #include <GLFW/glfw3.h>
 extern "C" {
@@ -42,6 +43,7 @@ int main(int, char**)
     ImVec4 clear_color = ImColor(35, 44, 59);
 
     DebugWindow debugWindow;
+    LoadWindow loadWindow;
 
     /* register all formats and codecs */
     av_register_all();
@@ -71,6 +73,7 @@ int main(int, char**)
         }
 
         debugWindow.draw();
+        loadWindow.draw();
 
         // Rendering
         int display_w, display_h;

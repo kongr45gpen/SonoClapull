@@ -3,7 +3,7 @@
 
 #include <string>
 #include <memory>
-#include "MediaDecoder.h"
+#include "../MediaDecoder.h"
 
 #define PATH_MAX 4097
 
