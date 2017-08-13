@@ -53,6 +53,8 @@ MediaDecoder::MediaDecoder(const std::string &filename, int samples) : filename(
     codecContext = audioStream->codec;
     format = decoder->long_name;
     sampleRate = audioStream->codec->sample_rate;
+    timebase = av_codec_get_pkt_timebase(codecContext).num /
+            (double) av_codec_get_pkt_timebase(codecContext).den;
 
     // initialize packet, set data to NULL, let the demuxer fill it
     av_init_packet(&packet);
@@ -256,4 +258,28 @@ float MediaDecoder::getProgress() {
 //    std::cout << "timebase:" << av_codec_get_pkt_timebase(codecContext).num << "/" << av_codec_get_pkt_timebase(codecContext).den << std::endl;
 
     return currentTimestamp / (float) audioStream->duration;
+}
+
+MediaDecoder::time MediaDecoder::getSampleTime(int index) {
+    if (!oldData || index >= oldData->size()) {
+        throw std::runtime_error("Index is too large for return array");
+    }
+
+    // The time at the beginning of the last frame
+    time lastFrameStart = currentTimestamp * timebase;
+
+    // The amount of samples to look forward in comparison to the last frame start
+    int moreSamples = processedFrameStart - (oldData->size() - index);
+
+    // The time at the end of the provided data
+    return lastFrameStart + moreSamples / (double) sampleRate;
+}
+
+void MediaDecoder::setOverlapSamples(unsigned int newSamples) {
+    overlap = 1 - newSamples / (float) samples;
+    std::cout << "Overlap set to " << overlap << std::endl;
+}
+
+void MediaDecoder::setOverlapZero() {
+    overlap = 0.0f;
 }

@@ -8,7 +8,7 @@
 #define PATH_MAX 4097
 
 class DebugWindow {
-    char location[PATH_MAX] = "~/Music/sine.wav";
+    char location[PATH_MAX] = "~/Music/slowandnice.wav";
 
     std::string openError;
 

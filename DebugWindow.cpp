@@ -105,6 +105,7 @@ void DebugWindow::analyse() {
 //        dataExists = 1;
         ToneLocator toneLocator(location);
         toneLocator.locateClock();
+        toneLocator.getData();
 
     } catch (Exception &e) {
         ImGui::OpenPopup("Error");

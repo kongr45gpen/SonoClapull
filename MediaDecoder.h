@@ -27,6 +27,7 @@ class MediaDecoder {
     std::string format;
 
     int sampleRate;
+    double timebase;
     AVFormatContext *formatContext = nullptr;
     AVCodecContext *codecContext = nullptr;
     AVFrame *frame = nullptr;
@@ -54,6 +55,8 @@ class MediaDecoder {
     void convertToFloat();
     void addNewSamples(std::vector<float>::iterator begin, int remainingSamples);
 public:
+    typedef double time;
+
     MediaDecoder(const std::string &filename, int samples = 1024);
     virtual ~MediaDecoder();
 
@@ -63,6 +66,23 @@ public:
     int getSampleRate() const {
         return sampleRate;
     }
+    void setSampleCount(int samples) {
+        MediaDecoder::samples = samples;
+    }
+    /**
+     * Set the overlap to almost the number of the provided samples
+     * 0 for 100% overlap
+     */
+    void setOverlapSamples(unsigned int newSamples);
+    void setOverlapZero();
+
+    /**
+     * Return the estimated time of a specific item
+     * in the output array returned by getNextSamples()
+     * @param index The index of the item in the getNextSamples() array
+     * @return The time in seconds
+     */
+    time getSampleTime(int index);
 
     std::shared_ptr<std::vector<float> > getNextSamples();
 
