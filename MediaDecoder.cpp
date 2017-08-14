@@ -246,7 +246,7 @@ std::string MediaDecoder::avError(int key, std::string description, std::string 
     return ss.str();
 }
 
-float MediaDecoder::getProgress() {
+float MediaDecoder::getProgress() const {
     if (audioStream == nullptr) {
         return 0;
     }

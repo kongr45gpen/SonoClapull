@@ -162,3 +162,7 @@ bool ToneLocator::containsFrequency(float hertz) {
 
     return frequencyAmplitude >= threshold;
 }
+
+const MediaDecoder &ToneLocator::getMediaDecoder() const {
+    return decoder;
+}

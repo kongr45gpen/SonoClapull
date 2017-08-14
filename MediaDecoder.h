@@ -86,7 +86,7 @@ public:
 
     std::shared_ptr<std::vector<float> > getNextSamples();
 
-    float getProgress();
+    float getProgress() const;
 };
 
 

@@ -38,18 +38,15 @@ public:
         const std::string &getPath() const {
             return directoryEntry.path().string();
         }
+        const boost::filesystem::directory_entry &getDirectoryEntry() const {
+            return directoryEntry;
+        }
 
         const Status getStatus() const {
             return status;
         }
 
-        const float getProgress() const {
-            if (toneLocator.is_initialized()) {
-                // Query & update progress
-            }
-
-            return progress;
-        }
+        const float getProgress();
     };
 
 private:

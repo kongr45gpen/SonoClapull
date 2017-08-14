@@ -57,6 +57,8 @@ public:
     ToneLocator(const std::string &filename);
     void locateClock();
     std::vector<uint8_t> getData();
+
+    const MediaDecoder &getMediaDecoder() const;
 };
 
 

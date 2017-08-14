@@ -6,6 +6,8 @@ void ProcessingWindow::draw() {
     ImGui::PushStyleColor(ImGuiCol_WindowBg, { 0.0, 0.0, 0.01, 0.97 });
     ImGui::Begin("Processing Queue");
 
+    ImGui::BeginChild("QueueQueue", ImVec2(0,ImGui::GetContentRegionAvail().y / 2.0f), false);
+
     ImGui::Columns(4, "filequeue"); // 4-ways, with border
     ImGui::SetColumnOffset(1, ImGui::GetWindowContentRegionWidth() * 0.05f);
     ImGui::SetColumnOffset(2, ImGui::GetWindowContentRegionWidth() * 0.55f);
@@ -22,9 +24,9 @@ void ProcessingWindow::draw() {
     ImGui::NextColumn();
     ImGui::Separator();
     static int selected = -1;
-    int i = 1;
+    int i = 0;
     for (Processing::File &file : processing->getFiles()) {
-        if (ImGui::Selectable(std::to_string(i).c_str(), selected == i, ImGuiSelectableFlags_SpanAllColumns)) {
+        if (ImGui::Selectable(std::to_string(i + 1).c_str(), selected == i, ImGuiSelectableFlags_SpanAllColumns)) {
             selected = i;
         }
         i++;
@@ -49,6 +51,34 @@ void ProcessingWindow::draw() {
 
     }
     ImGui::Columns(1);
+    ImGui::EndChild();
+
+    ImGui::BeginChild("QueueSelection", {0, 0}, true);
+    ImGui::Text("Selected file");
+    ImGui::Separator();
+    if (selected != -1) {
+        Processing::File &file = (processing->getFiles())[selected];
+
+        int column1 = 150;
+
+        ImGui::Text("Path:");
+        ImGui::SameLine(column1);
+        ImGui::Text("%s", file.getDirectoryEntry().path().c_str());
+
+        ImGui::Text("Extension:");
+        ImGui::SameLine(column1);
+        ImGui::Text("%s", file.getDirectoryEntry().path().extension().c_str());
+
+        ImGui::Spacing();
+        ImGui::Text("Status:");
+        ImGui::SameLine(column1);
+        showStatus(file.getStatus());
+
+        ImGui::Text("Progress:");
+        ImGui::SameLine(column1);
+        ImGui::Text("%.1f%%", file.getProgress());
+    }
+    ImGui::EndChild();
 
     ImGui::End();
     ImGui::PopStyleColor();
