@@ -5,7 +5,9 @@
 #include <memory>
 #include "../MediaDecoder.h"
 
+#ifndef PATH_MAX
 #define PATH_MAX 4097
+#endif
 
 class DebugWindow {
     char location[PATH_MAX] = "~/Music/slowandnice.wav";

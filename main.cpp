@@ -4,8 +4,13 @@
 #include "imgui_impl_glfw.h"
 #include "gui/DebugWindow.h"
 #include "gui/LoadWindow.h"
+#include "Processing.h"
+#include "gui/ProcessingWindow.h"
+#include "ProcessingThread.h"
 #include <stdio.h>
 #include <GLFW/glfw3.h>
+#include <thread>
+
 extern "C" {
 #include <libavformat/avformat.h>
 }
@@ -42,8 +47,15 @@ int main(int, char**)
     bool show_test_window = true;
     ImVec4 clear_color = ImColor(35, 44, 59);
 
+    auto processing = std::make_shared<Processing>();
+
     DebugWindow debugWindow;
-    LoadWindow loadWindow;
+    LoadWindow loadWindow(processing);
+    ProcessingWindow processingWindow(processing);
+
+    // Start threads
+    ProcessingThread processingThread(processing);
+    std::thread toastyThread(processingThread);
 
     /* register all formats and codecs */
     av_register_all();
@@ -74,6 +86,7 @@ int main(int, char**)
 
         debugWindow.draw();
         loadWindow.draw();
+        processingWindow.draw();
 
         // Rendering
         int display_w, display_h;

@@ -2,9 +2,12 @@
 #define SONOCLAPULL_LOADWINDOW_H
 
 #include <climits>
+#include "../Processing.h"
 
 class LoadWindow {
     static constexpr int EXT_MAX = 128;
+
+    std::shared_ptr<Processing> processing;
 
     /**
      * The amount of files loaded the last time the "Load" button
@@ -18,7 +21,8 @@ class LoadWindow {
 
     void performLoad();
 public:
-    LoadWindow();
+    explicit LoadWindow(const std::shared_ptr<Processing> &processing);
+
     void draw();
 };
 
