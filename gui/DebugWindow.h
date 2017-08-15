@@ -10,7 +10,7 @@
 #endif
 
 class DebugWindow {
-    char location[PATH_MAX] = "~/Music/slowandnice.wav";
+    char location[PATH_MAX] = "";
 
     std::string openError;
 
