@@ -1,5 +1,6 @@
 #include <imgui.h>
 #include "ProcessingWindow.h"
+#include "../Processing.h"
 
 void ProcessingWindow::draw() {
     ImGui::SetNextWindowSize(ImVec2(820, 700), ImGuiSetCond_Always);
@@ -25,24 +26,24 @@ void ProcessingWindow::draw() {
     ImGui::Separator();
     static int selected = -1;
     int i = 0;
-    for (Processing::File &file : processing->getFiles()) {
+    for (std::shared_ptr<Processing::File> &file : processing->getFiles()) {
         if (ImGui::Selectable(std::to_string(i + 1).c_str(), selected == i, ImGuiSelectableFlags_SpanAllColumns)) {
             selected = i;
         }
         i++;
         ImGui::NextColumn();
-        ImGui::Text("%s", file.getName().c_str());
+        ImGui::Text("%s", file->getName().c_str());
         ImGui::NextColumn();
-        showStatus(file.getStatus());
+        showStatus(file->getStatus());
         ImGui::NextColumn();
 
         // Sets the progress bar colour
-        ImGui::PushStyleColor(ImGuiCol_PlotHistogram, statusColour(file.getStatus()));
-        ImGui::ProgressBar(file.getProgress(), {
+        ImGui::PushStyleColor(ImGuiCol_PlotHistogram, statusColour(file->getStatus()));
+        ImGui::ProgressBar(file->getProgress(), {
                 ImGui::GetContentRegionAvailWidth() / 2.5f,
                 16 });
         ImGui::SameLine();
-        ImGui::ProgressBar(file.getProgress(), {
+        ImGui::ProgressBar(file->getProgress(), {
                 ImGui::GetContentRegionAvailWidth(),
                 16 });
         ImGui::PopStyleColor();
@@ -57,7 +58,7 @@ void ProcessingWindow::draw() {
     ImGui::Text("Selected file");
     ImGui::Separator();
     if (selected != -1) {
-        Processing::File &file = (processing->getFiles())[selected];
+        Processing::File &file = *((processing->getFiles())[selected]);
 
         int column1 = 150;
 
@@ -76,7 +77,40 @@ void ProcessingWindow::draw() {
 
         ImGui::Text("Progress:");
         ImGui::SameLine(column1);
-        ImGui::Text("%.1f%%", file.getProgress());
+        ImGui::Text("%.1f%%", 100.0 * file.getProgress());
+
+        if (file.getMediaData().is_initialized()) {
+            auto mediaData = file.getMediaData();
+
+            ImGui::Spacing();
+
+            ImGui::Text("Format:");
+            ImGui::SameLine(column1);
+            ImGui::Text("%d", mediaData->sampleRate);
+
+            ImGui::Text("Sample Rate:");
+            ImGui::SameLine(column1);
+            ImGui::Text("%s Hz", mediaData->format.c_str());
+        }
+
+        ImGui::Separator();
+        ImGui::PushStyleColor(ImGuiCol_Button, ImColor::HSV(0.3f, 0.8f, 0.6f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImColor::HSV(0.3f, 0.8f, 0.7f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImColor::HSV(0.3f, 0.6f, 0.8f));
+        if (ImGui::Button("Process...")) {
+            processing->processFile(selected);
+        }
+        ImGui::PopStyleColor(3);
+        ImGui::SameLine();
+        if (ImGui::Button("Remove")) {
+            processing->removeFile(selected);
+
+            if (selected >= processing->getFiles().size()) {
+                // Selected is the last remaining item, or none (-1)
+                // if no items remain
+                selected = processing->getFiles().size() - 1;
+            }
+        };
     }
     ImGui::EndChild();
 

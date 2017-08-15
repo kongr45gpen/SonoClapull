@@ -55,7 +55,7 @@ int main(int, char**)
 
     // Start threads
     ProcessingThread processingThread(processing);
-    std::thread toastyThread(processingThread);
+    std::thread toastyThread([&processingThread] () { processingThread(); });
 
     /* register all formats and codecs */
     av_register_all();

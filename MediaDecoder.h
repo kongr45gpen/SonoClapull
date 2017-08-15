@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <atomic>
 #include <memory>
 
 extern "C" {
@@ -42,7 +43,7 @@ class MediaDecoder {
     int processedFrameStart = 0;
     int processedFrameEnd = 0;
 
-    int64_t currentTimestamp;
+    std::atomic<int64_t> currentTimestamp;
 
     /**
      * Get a libav error description based on its key
